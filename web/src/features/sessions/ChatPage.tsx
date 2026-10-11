@@ -3,14 +3,17 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 import type { PromptRequest } from "@hub/shared";
+import { ArrowLeft, MessageProgramming, Send2, Trash } from "iconsax-react";
 import { Badge } from "../../components/ui/Badge";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
-import { Spinner } from "../../components/ui/Spinner";
+import { Icon } from "../../components/ui/Icon";
 import { api, errorMessage } from "../../lib/api";
+import { confirmAction } from "../../lib/confirm";
 import { formatModel, formatTokens, formatUsd, isoMs } from "../../lib/format";
 import { queryKeys } from "../../lib/queryKeys";
 import { useSessionEvents } from "../../lib/sse";
+import { useI18n } from "../../lib/i18n";
 import { asModelList, type MessageDto, type MessagePart, type SessionDto } from "../../lib/types";
 
 const PENDING_WINDOW_MS = 90_000;
@@ -42,30 +45,32 @@ function toolGlyph(label: string): string {
   return "...";
 }
 
-function toolTone(label: string): "accent" | "red" | "neutral" {
-  if (TOOL_DONE.has(label)) return "accent";
-  if (TOOL_FAIL.has(label)) return "red";
+function toolTone(label: string): "ok" | "err" | "neutral" {
+  if (TOOL_DONE.has(label)) return "ok";
+  if (TOOL_FAIL.has(label)) return "err";
   return "neutral";
 }
 
 /* ---------- message rendering ---------- */
 
 function PartView({ part }: { part: MessagePart }) {
+  const { t } = useI18n();
+
   if (part.type === "text") {
     return (
-      <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-200">
+      <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-primary">
         {stripThink(part.text ?? "")}
       </div>
     );
   }
   if (part.type === "reasoning") {
     return (
-      <details className="rounded-lg border border-line bg-bg/60 px-3 py-2">
-        <summary className="cursor-pointer select-none text-[11px] font-medium uppercase tracking-wider text-zinc-500 hover:text-zinc-300">
-          Thinking
+      <details className="rounded-lg border border-line bg-surface-3/50 px-3 py-2">
+        <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-wider text-muted hover:text-secondary">
+          {t("chat.reasoning")}
         </summary>
-        <div className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-zinc-500">
-          {part.text != null && part.text.length > 0 ? part.text : "(no reasoning content)"}
+        <div className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted">
+          {part.text != null && part.text.length > 0 ? part.text : t("chat.reasoning.empty")}
         </div>
       </details>
     );
@@ -75,18 +80,19 @@ function PartView({ part }: { part: MessagePart }) {
     return (
       <span className="inline-flex items-center gap-2">
         <Badge tone={toolTone(label)}>
-          {toolGlyph(label)} {part.name != null && part.name.length > 0 ? part.name : "tool"}
+          {toolGlyph(label)} {part.name != null && part.name.length > 0 ? part.name : t("chat.tool.default")}
         </Badge>
         {typeof part.id === "string" && part.id.length > 0 ? (
-          <span className="font-mono text-[10px] text-zinc-600">{part.id.slice(0, 8)}</span>
+          <span className="font-mono text-[10px] text-muted">{part.id.slice(0, 8)}</span>
         ) : null}
       </span>
     );
   }
-  return <Badge>{part.type != null && part.type.length > 0 ? part.type : "part"}</Badge>;
+  return <Badge>{part.type != null && part.type.length > 0 ? part.type : t("chat.part.default")}</Badge>;
 }
 
 function MessageRow({ m }: { m: MessageDto }) {
+  const { t, locale } = useI18n();
   // Real shape: user text at top level; assistant parts under `content`.
   const parts = m.type === "user" && m.content == null && m.text != null
     ? [{ type: "text", text: m.text } as MessagePart]
@@ -95,9 +101,9 @@ function MessageRow({ m }: { m: MessageDto }) {
   if (m.type === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] space-y-2 rounded-2xl rounded-br-sm border border-line bg-surface-2 px-4 py-2.5">
+        <div className="max-w-[85%] space-y-2 rounded-2xl rounded-br-sm border border-accent-border bg-accent-soft px-4 py-2.5">
           {parts.length === 0 ? (
-            <span className="text-sm italic text-zinc-600">(empty)</span>
+            <span className="text-sm italic text-muted">{t("chat.user.empty")}</span>
           ) : (
             parts.map((p, i) => <PartView key={i} part={p} />)
           )}
@@ -112,14 +118,14 @@ function MessageRow({ m }: { m: MessageDto }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-zinc-500">
-        {model !== "—" ? <span className="text-violet-300/80">{model}</span> : null}
-        {typeof inTok === "number" ? <span>in {formatTokens(inTok)}</span> : null}
-        {typeof outTok === "number" ? <span>out {formatTokens(outTok)}</span> : null}
-        {typeof m.cost === "number" ? <span>{formatUsd(m.cost)}</span> : null}
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted">
+        {model !== "—" ? <Badge tone="accent">{model}</Badge> : null}
+        {typeof inTok === "number" ? <span>{t("chat.meta.in", { tokens: formatTokens(inTok, locale) })}</span> : null}
+        {typeof outTok === "number" ? <span>{t("chat.meta.out", { tokens: formatTokens(outTok, locale) })}</span> : null}
+        {typeof m.cost === "number" ? <span>{formatUsd(m.cost, locale)}</span> : null}
       </div>
       {parts.length === 0 ? (
-        <div className="text-sm italic text-zinc-600">(no content)</div>
+        <div className="text-sm italic text-muted">{t("chat.assistant.empty")}</div>
       ) : (
         <div className="space-y-2">
           {parts.map((p, i) => (
@@ -134,6 +140,7 @@ function MessageRow({ m }: { m: MessageDto }) {
 /* ---------- page ---------- */
 
 export function ChatPage() {
+  const { t } = useI18n();
   const { id } = useParams();
   const sessionId = typeof id === "string" ? id : "";
   const qc = useQueryClient();
@@ -198,8 +205,8 @@ export function ChatPage() {
   // 90s safety timeout — never wait forever on a dropped SSE frame.
   useEffect(() => {
     if (sentAt == null) return;
-    const t = window.setTimeout(() => setSentAt(null), PENDING_WINDOW_MS);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setSentAt(null), PENDING_WINDOW_MS);
+    return () => window.clearTimeout(timer);
   }, [sentAt]);
 
   // A finished assistant message in the transcript clears the send override.
@@ -247,6 +254,19 @@ export function ChatPage() {
     },
   });
 
+  const interruptMutate = interrupt.mutate;
+  const interruptBusy = interrupt.isPending;
+
+  // Esc interrupts while pending (brand voice: «Interrumpir»).
+  useEffect(() => {
+    if (!pending) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !interruptBusy) interruptMutate();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pending, interruptBusy, interruptMutate]);
+
   /* ----- handlers ----- */
   function trySend() {
     const trimmed = text.trim();
@@ -264,7 +284,7 @@ export function ChatPage() {
   }
 
   function handleDelete() {
-    if (!window.confirm("Delete this session? This cannot be undone.")) return;
+    if (!confirmAction(t("chat.confirmDelete"))) return;
     remove.mutate();
   }
 
@@ -292,31 +312,33 @@ export function ChatPage() {
   }, [messages]);
 
   const headerModel = meta?.model ?? lastModel;
-  const title = meta?.title != null && meta.title.length > 0 ? meta.title : "Session";
+  const title = meta?.title != null && meta.title.length > 0 ? meta.title : t("chat.defaultTitle");
 
   if (sessionId.length === 0) {
     return (
       <div className="h-full overflow-y-auto p-4 lg:p-6">
-        <ErrorState message="Missing session id" />
+        <ErrorState message={t("chat.missingId")} retryLabel={t("common.retry")} />
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3 lg:px-6">
+      <header className="flex shrink-0 items-center gap-3 border-b border-line bg-surface-2/40 px-4 py-3 lg:px-6">
         <Link
           to="/sessions"
-          className="shrink-0 rounded-md border border-line px-2 py-1 text-xs text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-200"
+          aria-label={t("chat.back")}
+          title={t("chat.back")}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line text-secondary hover:bg-surface-3 hover:text-primary"
         >
-          ← Sessions
+          <Icon icon={ArrowLeft} size={16} />
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-zinc-100">{title}</div>
-          <div className="truncate font-mono text-[11px] text-zinc-600">{sessionId}</div>
+          <div className="truncate font-display text-sm font-bold text-primary">{title}</div>
+          <div className="truncate font-mono text-[11px] text-muted">{sessionId}</div>
         </div>
         {headerModel != null ? (
-          <Badge tone="violet" className="hidden sm:inline-flex">
+          <Badge tone="accent" className="hidden sm:inline-flex">
             {formatModel(headerModel)}
           </Badge>
         ) : null}
@@ -324,92 +346,107 @@ export function ChatPage() {
           type="button"
           onClick={handleDelete}
           disabled={remove.isPending}
-          className="shrink-0 rounded-md border border-red-900/60 px-2 py-1 text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40"
+          aria-label={t("common.delete")}
+          title={t("common.delete")}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-err/30 text-err hover:bg-err-soft disabled:opacity-40"
         >
-          {remove.isPending ? "Deleting..." : "Delete"}
+          <Icon icon={Trash} size={16} />
         </button>
       </header>
 
       <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-6">
         <div className="mx-auto w-full max-w-3xl space-y-5">
           {messagesQ.isLoading ? (
-            <div className="flex justify-center py-16">
-              <Spinner className="h-6 w-6" />
+            <div className="space-y-4">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className={`hub-skeleton h-16 ${i % 2 === 0 ? "ml-auto w-2/3" : "w-full"}`} />
+              ))}
             </div>
           ) : messagesQ.isError ? (
             <ErrorState
               message={errorMessage(messagesQ.error)}
+              retryLabel={t("common.retry")}
               onRetry={() => void messagesQ.refetch()}
             />
           ) : messages.length === 0 ? (
             <EmptyState
-              title="No messages yet"
-              hint="Send a prompt below to start the conversation."
+              icon={<Icon icon={MessageProgramming} size={22} />}
+              title={t("chat.empty.title")}
+              hint={`${t("chat.empty.hint")} ${t("chat.ctrlEnter")}`}
             />
           ) : (
             messages.map((m, i) => <MessageRow key={m.id ?? i} m={m} />)
           )}
           {pending ? (
-            <div className="flex items-center gap-2 text-xs text-emerald-300">
-              <Spinner className="h-3 w-3" />
-              waiting for assistant...
+            <div className="flex items-center gap-2.5 text-xs text-accent">
+              <span className="hub-dots" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+              {t("chat.waiting")}
             </div>
           ) : null}
         </div>
       </div>
 
-      <footer className="shrink-0 border-t border-line bg-surface/40 px-4 py-3 lg:px-6">
+      <footer className="shrink-0 border-t border-line bg-surface-2/60 px-4 py-3 lg:px-6">
         <div className="mx-auto w-full max-w-3xl">
-          <div className="flex items-end gap-2">
+          <div className="rounded-xl border border-line bg-surface-2 p-2 shadow-sm focus-within:border-accent-border">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={onKeyDown}
               rows={Math.min(8, Math.max(1, text.split("\n").length))}
               spellCheck={false}
-              placeholder={pending ? "Assistant is working..." : "Send a message"}
-              className="min-h-[2.4rem] flex-1 resize-none rounded-xl border border-line bg-bg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+              placeholder={pending ? t("chat.placeholderPending") : t("chat.placeholder")}
+              className="w-full resize-none bg-transparent px-2 py-1.5 text-sm leading-relaxed text-primary placeholder:text-muted focus:outline-none"
             />
-            {pending ? (
-              <button
-                type="button"
-                onClick={() => interrupt.mutate()}
-                disabled={interrupt.isPending}
-                className="rounded-xl border border-amber-700/60 bg-amber-500/10 px-3 py-2 text-xs text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+            <div className="flex items-center gap-2 px-1 pb-0.5 pt-1">
+              <select
+                value={modelChoice}
+                onChange={(e) => setModelChoice(e.target.value)}
+                aria-label={t("chat.model.default")}
+                className="max-w-[55%] truncate rounded-lg border border-line bg-surface px-2 py-1 font-mono text-xs text-secondary hover:border-accent-border focus:outline-none"
               >
-                {interrupt.isPending ? "Stopping..." : "Interrupt"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={trySend}
-                disabled={text.trim().length === 0 || send.isPending}
-                className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-medium text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-40"
-              >
-                {send.isPending ? "Sending..." : "Send"}
-              </button>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <select
-              value={modelChoice}
-              onChange={(e) => setModelChoice(e.target.value)}
-              className="rounded-lg border border-line bg-bg px-2 py-1 font-mono text-xs text-zinc-300 focus:border-emerald-500/60 focus:outline-none"
-            >
-              <option value="">session default model</option>
-              {modelOptions.map((mo) => (
-                <option key={mo} value={mo}>
-                  {mo}
-                </option>
-              ))}
-            </select>
-            {send.isError || interrupt.isError ? (
-              <span className="text-xs text-red-400">
-                {errorMessage(send.error ?? interrupt.error)}
+                <option value="">{t("chat.model.default")}</option>
+                {modelOptions.map((mo) => (
+                  <option key={mo} value={mo}>
+                    {mo}
+                  </option>
+                ))}
+              </select>
+              <span className="ml-auto hidden font-mono text-[10px] text-muted sm:inline">
+                {pending ? t("chat.interruptHint") : t("chat.ctrlEnter")}
               </span>
-            ) : null}
-            <span className="ml-auto font-mono text-[10px] text-zinc-600">Ctrl/⌘+Enter to send</span>
+              {pending ? (
+                <button
+                  type="button"
+                  onClick={() => interrupt.mutate()}
+                  disabled={interrupt.isPending}
+                  title={t("chat.interruptHint")}
+                  className="shrink-0 rounded-lg border border-err/50 px-3 py-1.5 text-xs font-semibold text-err hover:bg-err-soft disabled:opacity-50"
+                >
+                  {interrupt.isPending ? t("chat.interrupting") : t("chat.interrupt")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={trySend}
+                  disabled={text.trim().length === 0 || send.isPending}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-strong disabled:opacity-40"
+                >
+                  <Icon icon={Send2} size={14} />
+                  {send.isPending ? t("chat.sending") : t("chat.send")}
+                </button>
+              )}
+            </div>
           </div>
+          {send.isError || interrupt.isError ? (
+            <p className="mt-2 text-xs text-err">
+              {errorMessage(send.error ?? interrupt.error)}
+            </p>
+          ) : null}
         </div>
       </footer>
     </div>

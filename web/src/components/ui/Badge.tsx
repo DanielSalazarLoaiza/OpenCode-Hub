@@ -1,14 +1,13 @@
 import type { ReactNode } from "react";
 
-export type BadgeTone = "neutral" | "accent" | "violet" | "amber" | "red" | "green";
+export type BadgeTone = "neutral" | "accent" | "ok" | "warn" | "err";
 
 const toneClass: Record<BadgeTone, string> = {
-  neutral: "border-zinc-700 bg-zinc-800/60 text-zinc-300",
-  accent: "border-emerald-700/60 bg-emerald-500/10 text-emerald-300",
-  violet: "border-violet-700/60 bg-violet-500/10 text-violet-300",
-  amber: "border-amber-700/60 bg-amber-500/10 text-amber-300",
-  red: "border-red-800/60 bg-red-500/10 text-red-300",
-  green: "border-green-700/60 bg-green-500/10 text-green-300",
+  neutral: "border-line bg-surface-3 text-secondary",
+  accent: "border-accent-border bg-accent-soft text-accent",
+  ok: "border-ok/30 bg-ok-soft text-ok",
+  warn: "border-warn/30 bg-warn-soft text-warn",
+  err: "border-err/30 bg-err-soft text-err",
 };
 
 export function Badge({

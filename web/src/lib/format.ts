@@ -1,31 +1,84 @@
 import type { TokenUsageInfo } from "@hub/shared";
 import type { ModelRef } from "./types";
+import type { Locale } from "./i18n/types";
+
+/**
+ * Locale-aware formatting. `locale` comes from the i18n hook; every default
+ * keeps the previous behavior ("en") for unmodified call sites.
+ * es is pinned to es-CO (DragonJAR is Colombian): "US$ 12,34" style.
+ */
+function intlLocale(locale: Locale): string {
+  return locale === "es" ? "es-CO" : "en-US";
+}
+
+const compactFormatters = new Map<string, Intl.NumberFormat>();
+
+function numFormatter(locale: Locale): Intl.NumberFormat {
+  const tag = intlLocale(locale);
+  let nf = compactFormatters.get(tag);
+  if (nf == null) {
+    nf = new Intl.NumberFormat(tag, { maximumFractionDigits: 1 });
+    compactFormatters.set(tag, nf);
+  }
+  return nf;
+}
 
 /** Coerce anything into a finite number (0 when missing/invalid). */
 export function toNum(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-/** 1.2k / 3.4M / 1.2B style shortening for token and step counts. */
-export function formatTokens(n: unknown): string {
+/** 1.2k / 3.4M / 1.2B style shortening for token and step counts (locale decimal separator). */
+export function formatTokens(n: unknown, locale: Locale = "en"): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "—";
+  const fmt = numFormatter(locale);
   const abs = Math.abs(n);
-  if (abs >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
-  return String(Math.round(n));
+  if (abs >= 1e9) return `${fmt.format(n / 1e9)}B`;
+  if (abs >= 1e6) return `${fmt.format(n / 1e6)}M`;
+  if (abs >= 1e3) return `${fmt.format(n / 1e3)}k`;
+  return fmt.format(Math.round(n));
 }
 
-const usdFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
-/** USD currency formatting, with a sub-cent bucket. */
-export function formatUsd(n: unknown): string {
+/** USD currency formatting, with a sub-cent bucket. "US$ 12,34" es / "$12.34" en. */
+export function formatUsd(n: unknown, locale: Locale = "en"): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "—";
-  if (n !== 0 && Math.abs(n) < 0.01) return "<$0.01";
-  return usdFormatter.format(n);
+  if (n !== 0 && Math.abs(n) < 0.01) {
+    return locale === "es" ? "<US$ 0,01" : "<$0.01";
+  }
+  return new Intl.NumberFormat(intlLocale(locale), {
+    style: "currency",
+    currency: "USD",
+  }).format(n);
+}
+
+/** "12 ago 2026" style date for epoch-ms numbers or ISO strings. */
+export function formatDate(value: unknown, locale: Locale = "en"): string {
+  const ms = isoMs(value);
+  if (ms === 0) return "—";
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(ms);
+}
+
+/** "3m ago" / "hace 3 m" style relative time (Intl.RelativeTimeFormat, narrow). */
+export function formatRelative(value: unknown, locale: Locale = "en"): string {
+  const then = isoMs(value);
+  if (then === 0) return "—";
+  const diffSec = Math.floor((Date.now() - then) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(intlLocale(locale), {
+    numeric: "auto",
+    style: "narrow",
+  });
+  const abs = Math.abs(diffSec);
+  const past = -diffSec;
+  if (abs < 45) return rtf.format(past, "second");
+  if (abs < 2700) return rtf.format(Math.round(past / 60), "minute");
+  if (abs < 79200) return rtf.format(Math.round(past / 3600), "hour");
+  if (abs < 2592000) return rtf.format(Math.round(past / 86400), "day");
+  if (abs < 31536000) return rtf.format(Math.round(past / 2592000), "month");
+  return rtf.format(Math.round(past / 31536000), "year");
 }
 
 export interface LooseTokens {
@@ -38,23 +91,6 @@ export interface LooseTokens {
 export function totalTokens(t: LooseTokens | TokenUsageInfo | null | undefined): number {
   if (t == null) return 0;
   return toNum(t.input) + toNum(t.output) + toNum(t.reasoning);
-}
-
-/** "3m ago" style relative time for epoch-ms numbers or ISO strings. */
-export function formatRelative(value: unknown): string {
-  const then = isoMs(value);
-  if (then === 0) return "—";
-  const seconds = Math.floor((Date.now() - then) / 1000);
-  if (seconds < 45) return seconds <= 1 ? "just now" : `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
 }
 
 /** "provider/id" from a string or a {id, providerID} ref (real shape; modelID kept as legacy). */

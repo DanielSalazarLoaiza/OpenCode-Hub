@@ -1,38 +1,162 @@
 @import "tailwindcss";
 
-@theme {
-  --color-bg: #0a0a0b;
-  --color-surface: #18181b;
-  --color-surface-2: #1f1f23;
-  --color-line: #27272a;
-  --color-accent: #34d399;
-  --color-accent-2: #a78bfa;
-  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+/* ============================================================
+   DragonJAR brand · OpenCode Hub
+   Class-based dark mode + semantic design tokens.
+   Components NEVER hardcode theme values — only semantic
+   tokens mapped into Tailwind utilities below.
+   ============================================================ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Brand palette (manual: 60% black / 30% off-white / 10% red) */
+  --brand-negro: #0a0a0a;
+  --brand-rojo: #c11b05;
+  --brand-blanco-roto: #faf8f6;
+  --brand-gris-tactico: #4a4a4a;
+
+  /* Severity tokens (available for future severity UI) */
+  --sev-critico: #890f0a;
+  --sev-alto: #ff0000;
+  --sev-medio: #fbb03b;
+  --sev-bajo: #40a9f6;
+  --sev-info: #46586b;
+
+  /* Light theme (base defaults) */
+  --surface: #faf8f6;
+  --surface-2: #ffffff;
+  --surface-3: #f1edea;
+  --line: rgba(10, 10, 10, 0.08);
+  --text: #0a0a0a;
+  --text-2: #4a4a4a;
+  --text-3: #8a8a8a;
+  --accent: #c11b05;
+  --accent-strong: #a31704;
+  --accent-soft: rgba(193, 27, 5, 0.1);
+  --accent-border: rgba(193, 27, 5, 0.25);
+  --on-accent: #ffffff;
+  --ok: #2a7a3c;
+  --ok-soft: rgba(42, 122, 60, 0.12);
+  --warn: #b06d0f;
+  --warn-soft: rgba(176, 109, 15, 0.12);
+  --err: #c11b05;
+  --err-soft: rgba(193, 27, 5, 0.1);
+
+  /* Charts */
+  --chart-grid: rgba(10, 10, 10, 0.06);
+  --chart-axis: rgba(10, 10, 10, 0.08);
+  --chart-tick: #8a8a8a;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-text: #0a0a0a;
+  --chart-tooltip-muted: #4a4a4a;
+  --chart-cursor: rgba(193, 27, 5, 0.06);
+
+  /* Motion (manual: precision, not spectacle) */
+  --ease-brand: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dark {
+  --surface: #0a0a0a;
+  --surface-2: #141414;
+  --surface-3: #1c1c1c;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #faf8f6;
+  --text-2: #a6a6a6;
+  --text-3: #6f6f6f;
+  --accent: #e0311a;
+  --accent-strong: #c11b05;
+  --accent-soft: rgba(224, 49, 26, 0.12);
+  --accent-border: rgba(224, 49, 26, 0.35);
+  --on-accent: #ffffff;
+  --ok: #4ade80;
+  --ok-soft: rgba(74, 222, 128, 0.12);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.12);
+  --err: #ff4d3a;
+  --err-soft: rgba(255, 77, 58, 0.12);
+
+  --chart-grid: rgba(255, 255, 255, 0.05);
+  --chart-axis: rgba(255, 255, 255, 0.08);
+  --chart-tick: #6f6f6f;
+  --chart-tooltip-bg: #141414;
+  --chart-tooltip-text: #faf8f6;
+  --chart-tooltip-muted: #a6a6a6;
+  --chart-cursor: rgba(224, 49, 26, 0.08);
+}
+
+/* Map semantic tokens into Tailwind utilities.
+   Usage: bg-surface text-primary border-line etc. */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-primary: var(--text);
+  --color-secondary: var(--text-2);
+  --color-muted: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-on-accent: var(--on-accent);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-err: var(--err);
+  --color-err-soft: var(--err-soft);
+
+  /* Typography (Google Fonts with system fallbacks) */
+  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --font-sans: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code",
+    "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Motion */
+  --ease-brand: cubic-bezier(0.2, 0, 0, 1);
 }
 
 html {
+  color-scheme: light;
+}
+
+html.dark {
   color-scheme: dark;
 }
 
 body {
   margin: 0;
-  background-color: var(--color-bg);
-  color: #e4e4e7;
+  background-color: var(--surface);
+  color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 120ms var(--ease-brand),
+    color 120ms var(--ease-brand);
 }
 
 ::selection {
-  background: rgba(52, 211, 153, 0.28);
-  color: #f4f4f5;
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
+/* ---------------------------------------------------------------
+   Accessibility: accent focus-visible rings (manual: brand accent)
+   --------------------------------------------------------------- */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------------------------------------------------------------
+   Scrollbars (theme-aware)
+   --------------------------------------------------------------- */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: var(--text-3) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -41,14 +165,82 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--surface-3);
   border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--text-3);
 }
 
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ---------------------------------------------------------------
+   Brand motion: subtle, precise (no gratuitous animation)
+   --------------------------------------------------------------- */
+button,
+a,
+input,
+select,
+summary {
+  transition-property: color, background-color, border-color, opacity, box-shadow;
+  transition-duration: 120ms;
+  transition-timing-function: var(--ease-brand);
+}
+
+/* ---------------------------------------------------------------
+   Chat streaming: three-dot pulse indicator
+   --------------------------------------------------------------- */
+@keyframes hub-dot-pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.hub-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.hub-dots > span {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--accent);
+  animation: hub-dot-pulse 1.2s var(--ease-brand) infinite;
+}
+
+.hub-dots > span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.hub-dots > span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Skeleton pulse for loading cards */
+@keyframes hub-skeleton {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.hub-skeleton {
+  background: var(--surface-3);
+  animation: hub-skeleton 1.4s var(--ease-brand) infinite;
+  border-radius: 8px;
 }

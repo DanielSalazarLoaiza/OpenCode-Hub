@@ -11,6 +11,7 @@
   "dependencies": {
     "@hub/shared": "*",
     "@tanstack/react-query": "*",
+    "iconsax-react": "*",
     "react": "*",
     "react-dom": "*",
     "react-router": "*",

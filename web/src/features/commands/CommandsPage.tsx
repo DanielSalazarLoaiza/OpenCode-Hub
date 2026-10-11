@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CommandDto } from "@hub/shared";
+import { CommandSquare, SearchNormal1 } from "iconsax-react";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
-import { Spinner } from "../../components/ui/Spinner";
+import { Icon } from "../../components/ui/Icon";
 import { api, errorMessage } from "../../lib/api";
 import { queryKeys } from "../../lib/queryKeys";
+import { useI18n } from "../../lib/i18n";
 import { modelLabel } from "../../lib/types";
 
 /** Accepts a plain array or {commands}/{data} wrappers — defensively. */
@@ -45,12 +47,13 @@ function TemplateBlock({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
   const lines = template.split("\n");
   const overflow = lines.length > 8;
   const shown = expanded || !overflow ? lines : lines.slice(0, 8);
   return (
     <div className="mt-3">
-      <pre className="overflow-x-auto rounded-lg border border-line bg-bg/70 p-3 font-mono text-xs leading-relaxed text-zinc-400">
+      <pre className="overflow-x-auto rounded-lg border border-line bg-surface-3/60 p-3 font-mono text-xs leading-relaxed text-secondary">
         {shown.join("\n")}
         {overflow && !expanded ? "\n..." : ""}
       </pre>
@@ -58,9 +61,9 @@ function TemplateBlock({
         <button
           type="button"
           onClick={onToggle}
-          className="mt-1 text-[11px] text-emerald-400 hover:text-emerald-300"
+          className="mt-1 text-[11px] font-medium text-accent hover:text-accent-strong"
         >
-          {expanded ? "Show less" : `Show all ${lines.length} lines`}
+          {expanded ? t("commands.showLess") : t("commands.showAll", { count: lines.length })}
         </button>
       ) : null}
     </div>
@@ -68,6 +71,7 @@ function TemplateBlock({
 }
 
 export function CommandsPage() {
+  const { t } = useI18n();
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
@@ -91,32 +95,38 @@ export function CommandsPage() {
   return (
     <div className="h-full overflow-y-auto p-4 lg:p-6">
       <header className="mb-4 flex flex-wrap items-center gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-100">Commands</h1>
-          <p className="text-xs text-zinc-500">{commands.length} slash commands available</p>
+        <p className="text-xs text-muted">{t("commands.count", { count: commands.length })}</p>
+        <div className="relative ml-auto">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted">
+            <Icon icon={SearchNormal1} size={14} />
+          </span>
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t("commands.filter")}
+            aria-label={t("commands.filter")}
+            className="w-56 rounded-lg border border-line bg-surface-2 py-1.5 pl-8 pr-3 text-sm text-primary placeholder:text-muted focus:border-accent-border focus:outline-none"
+          />
         </div>
-        <input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter commands..."
-          className="ml-auto w-56 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-emerald-500/50 focus:outline-none"
-        />
       </header>
 
       {commandsQ.isLoading ? (
-        <div className="flex justify-center py-16">
-          <Spinner className="h-6 w-6" />
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="hub-skeleton h-44" />
+          ))}
         </div>
       ) : commandsQ.isError ? (
-        <ErrorState message={errorMessage(commandsQ.error)} onRetry={() => void commandsQ.refetch()} />
+        <ErrorState
+          message={errorMessage(commandsQ.error)}
+          retryLabel={t("common.retry")}
+          onRetry={() => void commandsQ.refetch()}
+        />
       ) : commands.length === 0 ? (
         <EmptyState
-          title={filter.length > 0 ? "No commands match the filter" : "No commands registered"}
-          hint={
-            filter.length > 0
-              ? "Try a different search term."
-              : "SDD commands (sdd-init, sdd-propose, ...) appear here once synced from opencode."
-          }
+          icon={<Icon icon={CommandSquare} size={22} />}
+          title={filter.length > 0 ? t("commands.empty.filterTitle") : t("commands.empty.title")}
+          hint={filter.length > 0 ? t("commands.empty.filterHint") : t("commands.empty.hint")}
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -129,17 +139,17 @@ export function CommandsPage() {
             return (
               <Card key={key}>
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-mono text-sm text-emerald-300">/{c.name ?? "unknown"}</h3>
-                  <Badge tone={src.global ? "accent" : "violet"} title={src.label}>
-                    {src.global ? "global" : "project"}
+                  <h3 className="font-mono text-sm font-medium text-accent">/{c.name ?? "unknown"}</h3>
+                  <Badge tone={src.global ? "accent" : "neutral"} title={src.label}>
+                    {src.global ? t("commands.source.global") : t("commands.source.project")}
                   </Badge>
                 </div>
                 {c.description != null && c.description.length > 0 ? (
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-400">{c.description}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-secondary">{c.description}</p>
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  {agent != null ? <Badge>agent: {agent}</Badge> : null}
-                  {model != null ? <Badge tone="violet">{model}</Badge> : null}
+                  {agent != null ? <Badge>{t("commands.agent", { agent })}</Badge> : null}
+                  {model != null ? <Badge tone="accent">{model}</Badge> : null}
                 </div>
                 {tpl != null && tpl.trim().length > 0 ? (
                   <TemplateBlock

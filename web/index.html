@@ -1,14 +1,67 @@
 <!doctype html>
-<html lang="en" style="background-color: #0a0a0b">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="OpenCode Hub — local dashboard for OpenCode V2 sessions, usage stats and slash commands. Built by DragonJAR."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,700;0,800;1,800&family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"
+      type="image/png"
+      sizes="32x32"
+      href="/brand/isotipo.png"
     />
-    <title>OpenCode Hub</title>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/brand/isotipo.png"
+    />
+    <link rel="apple-touch-icon" href="/brand/isotipo.png" />
+
+    <title>OpenCode Hub · DragonJAR</title>
+
+    <script>
+      // No-flash theme + lang bootstrap. Runs before CSS / React load.
+      (function () {
+        try {
+          var stored = localStorage.getItem("hub-theme");
+          var prefersDark =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : prefersDark
+                ? "dark"
+                : "light";
+          var root = document.documentElement;
+          if (theme === "dark") root.classList.add("dark");
+          root.setAttribute("data-theme", theme);
+
+          var lang = localStorage.getItem("hub-lang");
+          if (lang !== "es" && lang !== "en") {
+            lang = (navigator.language || "en").toLowerCase().startsWith("es")
+              ? "es"
+              : "en";
+          }
+          root.setAttribute("lang", lang);
+        } catch (e) {
+          // localStorage may be blocked — defaults already on <html>.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

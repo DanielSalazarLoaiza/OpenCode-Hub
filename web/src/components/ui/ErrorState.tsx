@@ -1,14 +1,28 @@
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+import { Warning2 } from "iconsax-react";
+import { Icon } from "./Icon";
+
+export function ErrorState({
+  message,
+  retryLabel,
+  onRetry,
+}: {
+  message: string;
+  retryLabel: string;
+  onRetry?: () => void;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-red-900/60 bg-red-500/5 p-8 text-center">
-      <p className="max-w-xl break-words font-mono text-sm text-red-300">{message}</p>
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-err/25 bg-err-soft px-6 py-10 text-center">
+      <span className="text-err" aria-hidden="true">
+        <Icon icon={Warning2} size={22} />
+      </span>
+      <p className="max-w-xl break-words font-mono text-sm leading-relaxed text-err">{message}</p>
       {onRetry != null ? (
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-md border border-red-800 bg-red-500/10 px-3 py-1 text-xs text-red-200 transition-colors hover:bg-red-500/20"
+          className="rounded-lg border border-accent-border px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent-soft"
         >
-          Retry
+          {retryLabel}
         </button>
       ) : null}
     </div>

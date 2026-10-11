@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
 import { Link } from "react-router";
 import {
   Bar,
@@ -12,15 +11,26 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  CalendarTick,
+  Chart2,
+  Data,
+  DollarCircle,
+  Flash,
+  MessageProgramming,
+  MessageSquare,
+} from "iconsax-react";
 import type { ActivityPoint, ModelStat, MonthStat, StatsSummary } from "@hub/shared";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
-import { Spinner } from "../../components/ui/Spinner";
+import { Icon } from "../../components/ui/Icon";
 import { StatTile } from "../../components/ui/StatTile";
 import { api, errorMessage } from "../../lib/api";
+import { useChartTheme } from "../../lib/chartTheme";
 import {
+  formatDate,
   formatModel,
   formatRelative,
   formatTokens,
@@ -30,74 +40,24 @@ import {
   totalTokens,
 } from "../../lib/format";
 import { queryKeys } from "../../lib/queryKeys";
+import { useI18n } from "../../lib/i18n";
 import type { SessionDto } from "../../lib/types";
 
-function Icon({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4 text-zinc-500"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
-
-const icons = {
-  tokens: (
-    <Icon>
-      <ellipse cx="12" cy="6" rx="8" ry="3" />
-      <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
-      <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
-    </Icon>
-  ),
-  cost: (
-    <Icon>
-      <path d="M12 2v20" />
-      <path d="M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </Icon>
-  ),
-  sessions: (
-    <Icon>
-      <path d="m12 2 9 5-9 5-9-5 9-5Z" />
-      <path d="m3 12 9 5 9-5" />
-      <path d="m3 17 9 5 9-5" />
-    </Icon>
-  ),
-  prompts: (
-    <Icon>
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
-    </Icon>
-  ),
-  days: (
-    <Icon>
-      <rect x="3" y="4" width="18" height="17" rx="2" />
-      <path d="M8 2v4M16 2v4M3 10h18" />
-    </Icon>
-  ),
-  streak: (
-    <Icon>
-      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
-    </Icon>
-  ),
-};
-
-/** Dark-theme recharts tooltip — fully defensive against injected props. */
+/** Themed recharts tooltip — fully defensive against injected props. */
 function ChartTip(raw: unknown) {
+  const { locale } = useI18n();
+  const ct = useChartTheme();
   const props = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   const active = props.active === true;
   const payload = Array.isArray(props.payload) ? props.payload : [];
   if (!active || payload.length === 0) return null;
   const label = props.label;
   return (
-    <div className="rounded-lg border border-line bg-zinc-900 px-3 py-2 text-xs shadow-xl">
-      <div className="mb-1 font-mono text-zinc-400">
+    <div
+      className="rounded-lg border px-3 py-2 text-xs shadow-xl"
+      style={{ background: ct.tooltipBg, borderColor: ct.tooltipBorder, color: ct.tooltipText }}
+    >
+      <div className="mb-1 font-mono" style={{ color: ct.tooltipMuted }}>
         {typeof label === "string" ? label : String(label ?? "")}
       </div>
       {payload.map((item, i) => {
@@ -110,14 +70,14 @@ function ChartTip(raw: unknown) {
           <div key={i} className="flex items-center gap-2">
             <span
               className="h-2 w-2 shrink-0 rounded-[2px]"
-              style={{ background: typeof it.color === "string" ? it.color : "#52525b" }}
+              style={{ background: typeof it.color === "string" ? it.color : ct.tooltipMuted }}
             />
-            <span className="text-zinc-400">{name}</span>
-            <span className="ml-auto pl-4 font-mono text-zinc-100">
+            <span style={{ color: ct.tooltipMuted }}>{name}</span>
+            <span className="ml-auto pl-4 font-mono" style={{ color: ct.tooltipText }}>
               {typeof value === "number"
                 ? isCost
-                  ? formatUsd(value)
-                  : formatTokens(value)
+                  ? formatUsd(value, locale)
+                  : formatTokens(value, locale)
                 : typeof value === "string"
                   ? value
                   : "—"}
@@ -148,6 +108,9 @@ function buildActivityDays(activity: ActivityPoint[] | undefined): Array<{ date:
 }
 
 export function DashboardPage() {
+  const { t, locale } = useI18n();
+  const ct = useChartTheme();
+
   const stats = useQuery({
     queryKey: queryKeys.stats.summary(12),
     queryFn: () => api<StatsSummary>("/api/stats/summary?months=12"),
@@ -161,15 +124,18 @@ export function DashboardPage() {
   if (stats.isLoading) {
     return (
       <div className="h-full overflow-y-auto p-4 lg:p-6">
+        <div className="mb-6 space-y-2">
+          <div className="hub-skeleton h-3.5 w-56" />
+        </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           {Array.from({ length: 6 }, (_, i) => (
-            <div
-              key={i}
-              className="flex h-28 items-center justify-center rounded-xl border border-line bg-surface"
-            >
-              <Spinner />
-            </div>
+            <div key={i} className="hub-skeleton h-28" />
           ))}
+        </div>
+        <div className="hub-skeleton mt-6 h-72" />
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <div className="hub-skeleton h-56" />
+          <div className="hub-skeleton h-56" />
         </div>
       </div>
     );
@@ -178,7 +144,11 @@ export function DashboardPage() {
   if (stats.isError) {
     return (
       <div className="h-full overflow-y-auto p-4 lg:p-6">
-        <ErrorState message={errorMessage(stats.error)} onRetry={() => void stats.refetch()} />
+        <ErrorState
+          message={errorMessage(stats.error)}
+          retryLabel={t("common.retry")}
+          onRetry={() => void stats.refetch()}
+        />
       </div>
     );
   }
@@ -194,6 +164,7 @@ export function DashboardPage() {
     tokens: totalTokens(m.tokens),
     cost: toNum(m.cost),
   }));
+  const hasCost = chartData.some((m) => m.cost > 0);
 
   const byModel: ModelStat[] = data?.byModel ?? [];
   const modelRows = [...byModel].sort((a, b) => totalTokens(b.tokens) - totalTokens(a.tokens));
@@ -209,97 +180,143 @@ export function DashboardPage() {
 
   return (
     <div className="h-full overflow-y-auto p-4 lg:p-6">
-      <header className="mb-6">
-        <h1 className="text-lg font-semibold text-zinc-100">Dashboard</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">
-          Last 12 months
-          {typeof data?.timezone === "string" ? ` · ${data.timezone}` : ""}
-          {typeof data?.generatedAt === "string" ? ` · updated ${formatRelative(data.generatedAt)}` : ""}
-        </p>
-      </header>
+      <p className="mb-6 text-xs text-muted">
+        {t("dashboard.subtitle.range")}
+        {typeof data?.timezone === "string" && data.timezone.length > 0 ? ` · ${data.timezone}` : ""}
+        {typeof data?.generatedAt === "string"
+          ? ` · ${t("dashboard.subtitle.updated", { relative: formatRelative(data.generatedAt, locale) })}`
+          : ""}
+      </p>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         <StatTile
-          label="Tokens"
-          value={formatTokens(grandTokens)}
-          sub={`in ${formatTokens(tokens?.input)} · out ${formatTokens(tokens?.output)}`}
-          icon={icons.tokens}
+          label={t("dashboard.stats.tokens")}
+          value={formatTokens(grandTokens, locale)}
+          sub={t("dashboard.stats.inOut", {
+            input: formatTokens(tokens?.input, locale),
+            output: formatTokens(tokens?.output, locale),
+          })}
+          icon={<Icon icon={Data} size={17} />}
         />
-        <StatTile label="Est. cost" value={formatUsd(totals?.cost)} sub="USD" icon={icons.cost} />
-        <StatTile label="Sessions" value={formatTokens(toNum(totals?.sessions))} icon={icons.sessions} />
-        <StatTile label="Prompts" value={formatTokens(toNum(totals?.prompts))} icon={icons.prompts} />
-        <StatTile label="Active days" value={formatTokens(toNum(totals?.activeDays))} icon={icons.days} />
-        <StatTile label="Streak" value={`${formatTokens(toNum(totals?.streak))} d`} icon={icons.streak} />
+        <StatTile
+          label={t("dashboard.stats.cost")}
+          value={formatUsd(totals?.cost, locale)}
+          sub={t("dashboard.stats.usd")}
+          icon={<Icon icon={DollarCircle} size={17} />}
+        />
+        <StatTile
+          label={t("dashboard.stats.sessions")}
+          value={formatTokens(toNum(totals?.sessions), locale)}
+          icon={<Icon icon={MessageSquare} size={17} />}
+        />
+        <StatTile
+          label={t("dashboard.stats.prompts")}
+          value={formatTokens(toNum(totals?.prompts), locale)}
+          icon={<Icon icon={MessageProgramming} size={17} />}
+        />
+        <StatTile
+          label={t("dashboard.stats.activeDays")}
+          value={formatTokens(toNum(totals?.activeDays), locale)}
+          icon={<Icon icon={CalendarTick} size={17} />}
+        />
+        <StatTile
+          label={t("dashboard.stats.streak")}
+          value={`${formatTokens(toNum(totals?.streak), locale)} ${t("dashboard.stats.streakUnit")}`}
+          icon={<Icon icon={Flash} size={17} />}
+        />
       </div>
 
-      <Card title="Usage by month" className="mt-6">
+      <Card title={t("dashboard.chart.title")} className="mt-6">
         {chartData.length === 0 ? (
-          <EmptyState title="No usage recorded yet" />
+          <EmptyState
+            icon={<Icon icon={Chart2} size={22} />}
+            title={t("dashboard.chart.empty")}
+          />
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
-              <CartesianGrid stroke="#1c1c1f" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: "#71717a", fontSize: 11 }}
-                axisLine={{ stroke: "#27272a" }}
-                tickLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                yAxisId="tokens"
-                width={44}
-                tick={{ fill: "#71717a", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={formatTokens}
-              />
-              <YAxis
-                yAxisId="cost"
-                orientation="right"
-                width={52}
-                tick={{ fill: "#71717a", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v: number) => formatUsd(v)}
-              />
-              <Tooltip content={ChartTip} cursor={{ fill: "rgba(63, 63, 70, 0.12)" }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} iconSize={9} />
-              <Bar
-                yAxisId="tokens"
-                dataKey="tokens"
-                name="tokens"
-                fill="#34d399"
-                fillOpacity={0.8}
-                radius={[3, 3, 0, 0]}
-                maxBarSize={26}
-              />
-              <Line
-                yAxisId="cost"
-                dataKey="cost"
-                name="cost (usd)"
-                type="monotone"
-                stroke="#a78bfa"
-                strokeWidth={2}
-                dot={false}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <>
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+                <CartesianGrid stroke={ct.grid} vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: ct.tick, fontSize: 11 }}
+                  axisLine={{ stroke: ct.axis }}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  yAxisId="tokens"
+                  width={44}
+                  tick={{ fill: ct.tick, fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => formatTokens(v, locale)}
+                />
+                {hasCost ? (
+                  <YAxis
+                    yAxisId="cost"
+                    orientation="right"
+                    width={52}
+                    tick={{ fill: ct.tick, fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => formatUsd(v, locale)}
+                  />
+                ) : null}
+                <Tooltip content={ChartTip} cursor={{ fill: ct.cursor }} />
+                <Legend
+                  wrapperStyle={{ fontSize: 11 }}
+                  iconSize={9}
+                  formatter={(value) => (
+                    <span style={{ color: ct.tooltipMuted }}>{String(value)}</span>
+                  )}
+                />
+                <Bar
+                  yAxisId="tokens"
+                  dataKey="tokens"
+                  name={t("dashboard.chart.tokens")}
+                  fill={ct.accent}
+                  fillOpacity={0.85}
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={26}
+                />
+                {hasCost ? (
+                  <Line
+                    yAxisId="cost"
+                    dataKey="cost"
+                    name={t("dashboard.chart.cost")}
+                    type="monotone"
+                    stroke={ct.line}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ) : null}
+              </ComposedChart>
+            </ResponsiveContainer>
+            {!hasCost ? (
+              <p className="mt-2 text-center font-mono text-[11px] text-muted">
+                {t("dashboard.chart.noCost")}
+              </p>
+            ) : null}
+          </>
         )}
       </Card>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        <Card title="Models by usage">
+        <Card title={t("dashboard.models.title")}>
           {modelRows.length === 0 ? (
-            <EmptyState title="No model usage recorded" />
+            <EmptyState
+              icon={<Icon icon={Data} size={22} />}
+              title={t("dashboard.models.empty")}
+            />
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-zinc-500">
-                  <th className="pb-2 pr-3 font-medium">Model</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Steps</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Tokens</th>
-                  <th className="pb-2 text-right font-medium">Cost</th>
+                <tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-muted">
+                  <th className="pb-2 pr-3 font-semibold">{t("dashboard.models.model")}</th>
+                  <th className="pb-2 pr-3 text-right font-semibold">{t("dashboard.models.steps")}</th>
+                  <th className="pb-2 pr-3 text-right font-semibold">{t("dashboard.models.tokens")}</th>
+                  <th className="pb-2 text-right font-semibold">{t("dashboard.models.cost")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -311,23 +328,25 @@ export function DashboardPage() {
                   return (
                     <tr key={m.model ?? i} className="border-b border-line/50 last:border-0">
                       <td className="py-2.5 pr-3">
-                        <div className="truncate font-mono text-xs text-zinc-300">{m.model ?? "—"}</div>
-                        <div className="mt-1.5 h-1 w-full max-w-56 overflow-hidden rounded-full bg-zinc-800">
+                        <div className="truncate font-mono text-xs text-primary">{m.model ?? "—"}</div>
+                        <div className="mt-1.5 h-1 w-full max-w-56 overflow-hidden rounded-full bg-surface-3">
                           <div
-                            className="h-full rounded-full bg-emerald-400/80"
+                            className="h-full rounded-full bg-accent/80"
                             style={{ width: `${share.toFixed(1)}%` }}
                           />
                         </div>
-                        <div className="mt-1 text-[10px] text-zinc-600">{share.toFixed(1)}% of tokens</div>
+                        <div className="mt-1 text-[10px] text-muted">
+                          {t("dashboard.models.share", { share: share.toFixed(1) })}
+                        </div>
                       </td>
-                      <td className="py-2.5 pr-3 text-right font-mono text-xs text-zinc-400">
-                        {formatTokens(toNum(m.steps))}
+                      <td className="py-2.5 pr-3 text-right font-mono text-xs text-secondary">
+                        {formatTokens(toNum(m.steps), locale)}
                       </td>
-                      <td className="py-2.5 pr-3 text-right font-mono text-xs text-zinc-400">
-                        {formatTokens(totalTokens(m.tokens))}
+                      <td className="py-2.5 pr-3 text-right font-mono text-xs text-secondary">
+                        {formatTokens(totalTokens(m.tokens), locale)}
                       </td>
-                      <td className="py-2.5 text-right font-mono text-xs text-zinc-400">
-                        {formatUsd(m.cost)}
+                      <td className="py-2.5 text-right font-mono text-xs text-secondary">
+                        {formatUsd(m.cost, locale)}
                       </td>
                     </tr>
                   );
@@ -338,10 +357,10 @@ export function DashboardPage() {
         </Card>
 
         <Card
-          title="Activity"
+          title={t("dashboard.activity.title")}
           actions={
-            <span className="font-mono text-[11px] text-zinc-500">
-              {formatTokens(activityTotal)} steps · 90d
+            <span className="font-mono text-[11px] text-muted">
+              {t("dashboard.activity.total", { steps: formatTokens(activityTotal, locale) })}
             </span>
           }
         >
@@ -349,36 +368,45 @@ export function DashboardPage() {
             {activityDays.map((d) => (
               <div
                 key={d.date}
-                title={`${d.date} · ${d.steps} steps`}
-                className={`flex-1 rounded-[2px] ${d.steps === 0 ? "bg-zinc-800/70" : "bg-emerald-400/75"}`}
+                title={t("dashboard.activity.day", {
+                  date: formatDate(d.date, locale),
+                  steps: formatTokens(d.steps, locale),
+                })}
+                className={`flex-1 rounded-[2px] ${d.steps === 0 ? "bg-surface-3" : "bg-accent/75"}`}
                 style={{
                   height: d.steps === 0 ? "10%" : `${Math.max(12, (d.steps / activityMax) * 100)}%`,
                 }}
               />
             ))}
           </div>
-          <div className="mt-2 flex justify-between font-mono text-[10px] text-zinc-600">
+          <div className="mt-2 flex justify-between font-mono text-[10px] text-muted">
             <span>{activityDays[0]?.date ?? ""}</span>
-            <span>today</span>
+            <span>{t("dashboard.activity.today")}</span>
           </div>
         </Card>
       </div>
 
       <Card
-        title="Recent sessions"
+        title={t("dashboard.recent.title")}
         className="mt-6"
         actions={
-          <Link to="/sessions" className="text-xs text-emerald-400 hover:text-emerald-300">
-            View all →
+          <Link to="/sessions" className="text-xs font-medium text-accent hover:text-accent-strong">
+            {t("dashboard.recent.viewAll")} →
           </Link>
         }
       >
         {recent.isLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner />
+          <div className="space-y-2.5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="hub-skeleton h-9" />
+            ))}
           </div>
         ) : sessions.length === 0 ? (
-          <EmptyState title="No sessions yet" hint="Sessions appear here once you chat." />
+          <EmptyState
+            icon={<Icon icon={MessageSquare} size={22} />}
+            title={t("dashboard.recent.empty")}
+            hint={t("dashboard.recent.emptyHint")}
+          />
         ) : (
           <ul>
             {sessions.map((s) => {
@@ -386,30 +414,30 @@ export function DashboardPage() {
               return (
                 <li
                   key={s.id}
-                  className="flex items-center gap-3 border-b border-line/50 py-2 last:border-0"
+                  className="-mx-2 flex items-center gap-3 rounded-lg border-b border-line/50 px-2 py-2 transition-colors last:border-0 hover:bg-surface-3/60"
                 >
                   <Link
                     to={`/sessions/${s.id}`}
-                    className="min-w-0 flex-1 truncate text-sm text-zinc-200 hover:text-emerald-300"
+                    className="min-w-0 flex-1 truncate text-sm text-primary hover:text-accent"
                   >
                     {s.title != null && s.title.length > 0 ? (
                       s.title
                     ) : (
-                      <span className="italic text-zinc-500">Untitled</span>
+                      <span className="italic text-muted">{t("common.untitled")}</span>
                     )}
-                    <span className="ml-2 font-mono text-[10px] text-zinc-600">
+                    <span className="ml-2 font-mono text-[10px] text-muted">
                       {s.id.length > 12 ? `${s.id.slice(0, 12)}...` : s.id}
                     </span>
                   </Link>
-                  {model !== "—" ? <Badge tone="violet">{model}</Badge> : null}
-                  <span className="w-14 shrink-0 text-right font-mono text-xs text-zinc-400">
-                    {formatTokens(totalTokens(s.tokens))}
+                  {model !== "—" ? <Badge tone="accent">{model}</Badge> : null}
+                  <span className="w-14 shrink-0 text-right font-mono text-xs text-secondary">
+                    {formatTokens(totalTokens(s.tokens), locale)}
                   </span>
-                  <span className="w-16 shrink-0 text-right font-mono text-xs text-zinc-500">
-                    {formatUsd(s.cost)}
+                  <span className="w-16 shrink-0 text-right font-mono text-xs text-muted">
+                    {formatUsd(s.cost, locale)}
                   </span>
-                  <span className="w-16 shrink-0 text-right font-mono text-[11px] text-zinc-600">
-                    {formatRelative(s.time?.created)}
+                  <span className="w-16 shrink-0 text-right font-mono text-[11px] text-muted">
+                    {formatRelative(s.time?.created, locale)}
                   </span>
                 </li>
               );

@@ -34,6 +34,7 @@ background service.
   over SSE.
 - **Commands** — all your custom commands (`/sdd-*`, `/init`, `/review`, ...) with description, source
   (global/project), agent/model badges and template preview.
+- **DragonJAR brand UI** — official visual identity with dark/light theme and a full ES/EN interface.
 
 ### Architecture
 
@@ -167,6 +168,7 @@ del mismo servicio en background.
   `Ctrl/Cmd+Enter` para enviar, botón de interrupción, actualizaciones en vivo por SSE.
 - **Comandos** — todos tus comandos personalizados (`/sdd-*`, `/init`, `/review`, ...) con
   descripción, origen (global/proyecto), insignias de agente/modelo y vista previa del template.
+- **Interfaz con marca DragonJAR** — identidad visual oficial, tema claro/oscuro e interfaz completa ES/EN.
 
 ### Arquitectura
 
