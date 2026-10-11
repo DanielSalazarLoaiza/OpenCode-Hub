@@ -18,9 +18,8 @@ const navItems: NavItem[] = [
 ];
 
 /**
- * Brand sidebar. Full logo on lg+, isotipo on the icon rail (< lg).
- * Official assets only — never redrawn. Protection space ≈ 0.8X via
- * generous padding around the mark.
+ * Brand sidebar. Single project logo (square tile, self-contained
+ * background — safe on any theme). Protection space via generous padding.
  */
 export function Sidebar() {
   const { t } = useI18n();
@@ -29,22 +28,10 @@ export function Sidebar() {
     <aside className="flex h-full w-16 shrink-0 flex-col border-r border-line bg-surface-2/60 lg:w-60">
       {/* Brand */}
       <div className="flex h-16 shrink-0 items-center justify-center border-b border-line px-3 lg:justify-start lg:px-5">
-        <span className="hidden py-2 lg:block">
-          <img
-            src="/brand/logo-light.png"
-            alt="DragonJAR"
-            className="h-8 w-auto dark:hidden"
-          />
-          <img
-            src="/brand/logo-dark.png"
-            alt="DragonJAR"
-            className="hidden h-8 w-auto dark:block"
-          />
-        </span>
         <img
-          src="/brand/isotipo.png"
+          src="/brand/logo.png"
           alt="DragonJAR"
-          className="h-9 w-9 lg:hidden"
+          className="h-9 w-9 rounded-lg ring-1 ring-line lg:h-10 lg:w-10"
         />
       </div>
 
