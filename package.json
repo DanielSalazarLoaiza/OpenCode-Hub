@@ -1,0 +1,13 @@
+{
+  "name": "opencode-hub",
+  "private": true,
+  "type": "module",
+  "workspaces": ["shared", "server", "web"],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @hub/server\" \"npm run dev -w @hub/web\"",
+    "dev:server": "npm run dev -w @hub/server",
+    "dev:web": "npm run dev -w @hub/web",
+    "typecheck": "npm run typecheck -w @hub/shared && npm run typecheck -w @hub/server && npm run typecheck -w @hub/web"
+  },
+  "devDependencies": { "concurrently": "*" }
+}

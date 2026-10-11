@@ -1,0 +1,21 @@
+{
+  "name": "@hub/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hub/shared": "*",
+    "@opencode/client": "*",
+    "fastify": "*",
+    "@fastify/static": "*"
+  },
+  "devDependencies": {
+    "tsx": "*",
+    "typescript": "*",
+    "@types/node": "*"
+  }
+}
